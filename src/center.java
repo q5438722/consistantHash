@@ -1,3 +1,5 @@
+import com.sun.org.apache.xpath.internal.operations.Bool;
+
 import javax.swing.*;
 import java.awt.*;
 import java.io.*;
@@ -7,30 +9,75 @@ import java.security.*;
 import java.util.*;
 
 
+class DataLog
+{
+    public int src, dst;
+    public String trans, data;
+    DataLog(int _src, int _dst, String _trans, String _data)
+    {
+        src = _src;
+        dst = _dst;
+        trans = _trans;
+        data = _data;
+    }
+
+    public String getOutputLabel()
+    {
+        if(data != null) return trans + " from " + src + " to " + dst + " : " + data;
+        else return trans + " from " + src + " to " + dst;
+    }
+
+}
+
+
 class Trigger extends Thread
 {
+    public static final int livePeriod = 5000;
+    public final Boolean flag = false;
     public int serverID = 0;
-    public HashMap<Integer, BufferedReader> readers = new HashMap<>();
-    public HashMap<Integer, Integer> idMaps = new HashMap<>();
+    public Map <Integer, BufferedReader> readers = Collections.synchronizedMap(new HashMap<>());
+    public Map <Integer, Integer> idMaps = Collections.synchronizedMap(new HashMap<>());
+    public TreeMap<Long, DataLog> curLogs = new TreeMap<>(), pastLog = new TreeMap<>();
 
-    public void addServer(int num) throws NoSuchAlgorithmException, IOException {
-        serverID = serverID + 1;
-        boolean flag = false;
-        for(int i = 0; i < num; i++)
+    public void addServer(int num) throws NoSuchAlgorithmException, IOException, InterruptedException {
+        synchronized (flag)
         {
-            int port = hash.getHash("Server" +  Integer.toString(serverID));
-            if (idMaps.containsKey(port)) continue;
-            flag = true;
-            String[] cmd = {"java", "-cp", "out/production/center", "client", "127.0.0.1", Integer.toString(port)};
-            Process p = Runtime.getRuntime().exec(cmd);
-            InputStream inputStream = p.getInputStream();
-            InputStreamReader inputStreamReader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);//将一个字节流中的字节解码成字符
-            BufferedReader bufferedReader = new BufferedReader(inputStreamReader);//为输入流添加缓冲
-            idMaps.put(port, serverID);
-            readers.put(port, bufferedReader);
-            System.out.println("port"  + port);
+            serverID = serverID + 1;
+            for(int i = 0; i < num; i++)
+            {
+                int port = hash.getHash("Server" +  Integer.toString(serverID));
+                if (idMaps.containsKey(port)) continue;
+
+                boolean closed = false;
+                for(int used: idMaps.keySet())
+                {
+                    int dis = Math.abs(used - port);
+                    if(dis > hash.hashMAX / 2) dis = hash.hashMAX - dis;
+                    if(dis < center.minDistance) closed = true;
+                }
+                if(closed) continue;
+
+                Iterator<Integer> it = idMaps.keySet().iterator();
+                int agent = port;
+                if(it.hasNext()) agent = it.next();
+                System.out.println("port " + port + " agent " + agent);
+                String[] cmd = {"java", "-cp", "out/production/center", "ServerProcess",
+                        "127.0.0.1", Integer.toString(port), Integer.toString(agent)};
+                Process p = Runtime.getRuntime().exec(cmd);
+                InputStream inputStream = p.getInputStream();
+                InputStreamReader inputStreamReader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);//将一个字节流中的字节解码成字符
+                BufferedReader bufferedReader = new BufferedReader(inputStreamReader);//为输入流添加缓冲
+    //            String s;
+    //
+    //            while((s = bufferedReader.readLine()) != null) {
+    //                System.out.println("s" + s);
+    //            }
+                idMaps.put(port, serverID);
+                readers.put(port, bufferedReader);
+                System.out.println("port"  + port);
+            }
+            System.out.println("Size: " + readers.size());
         }
-        System.out.println("Size: " + readers.size());
     }
 
 
@@ -41,17 +88,18 @@ class Trigger extends Thread
         String text = "";
         try {
             while ((text = br.readLine()) != null) {
-                if(text.equals("AddServer")) addServer(center.Redundancy);
+                if(text.equals("")) continue;
+                if(text.charAt(0) == 'A' || text.charAt(0) == 'a') addServer(center.Redundancy);
                 System.out.println(text);
             }
-        } catch (IOException | NoSuchAlgorithmException e) {
+        } catch (IOException | NoSuchAlgorithmException | InterruptedException e) {
             e.printStackTrace();
         }
     }
 }
 
 public class center extends JFrame {
-    public static final int Redundancy = 3;
+    public static final int Redundancy = 1, minDistance = 100;
 
     center(Trigger _trigger)
     {
@@ -99,20 +147,11 @@ public class center extends JFrame {
     }
 
 
-    public static void main(String[] args) throws IOException {
-//        int port = 1234;
-//        String[] cmd = {"java", "-cp", "out/production/center", "client", "127.0.0.1", Integer.toString(port)};
-//        Process p = Runtime.getRuntime().exec(cmd);
-//        InputStream inputStream = p.getInputStream();
-//
-//        InputStreamReader inputStreamReader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
-//        BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
-//        String info = "";
-//        info = bufferedReader.readLine();
-//        System.out.printf("%d %s\n", port, info);
+    public static void main(String[] args) throws IOException, InterruptedException {
+
+
         Trigger trigger = new Trigger();
         trigger.start();
-//        cancelServer(3333);
         center c = new center(trigger);
         c.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         c.setSize(Points.Width, Points.Height);
