@@ -4,7 +4,7 @@ import java.security.NoSuchAlgorithmException;
 
 public class hash
 {
-    public static final int hashLen = 16;
+    public static final int hashLen = 14;
     public static final int hashMAX = 16384;
 
     public static int getHash(String inputLine) throws NoSuchAlgorithmException {

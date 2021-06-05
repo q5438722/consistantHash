@@ -23,6 +23,7 @@ class DataLog
 
     public String getOutputLabel()
     {
+        if(trans.equals("test")) return src + " : " + data;
         if(data != null) return trans + " from " + src + " to " + dst + " : " + data;
         else return trans + " from " + src + " to " + dst;
     }
@@ -34,6 +35,7 @@ class Trigger extends Thread
 {
     public static final int livePeriod = 5000;
     public final Boolean flag = false;
+    public boolean refresh = false;
     public int serverID = 0;
     public Map <Integer, BufferedReader> readers = Collections.synchronizedMap(new HashMap<>());
     public Map <Integer, Integer> idMaps = Collections.synchronizedMap(new HashMap<>());
@@ -80,6 +82,131 @@ class Trigger extends Thread
         }
     }
 
+    void cancelServer(int port) throws IOException {
+        Socket socket = new Socket("127.0.0.1", port);
+        OutputStream outputStream = socket.getOutputStream();//得到一个输出流，用于向服务器发送数据
+        OutputStreamWriter writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8);//将写入的字符编码成字节后写入一个字节流
+
+        String data = "cancelServer\n";
+        writer.write(data);
+        writer.flush();//刷新缓冲
+        socket.shutdownOutput();//只关闭输出流而不关闭连接
+        //获取服务器端的响应数据
+
+//        InputStream inputStream = socket.getInputStream();//得到一个输入流，用于接收服务器响应的数据
+//        InputStreamReader inputStreamReader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);//将一个字节流中的字节解码成字符
+//        BufferedReader bufferedReader = new BufferedReader(inputStreamReader);//为输入流添加缓冲
+//        String info = null;
+//
+//        //输出服务器端响应数据
+//        while ((info = bufferedReader.readLine()) != null) {
+//            System.out.println(info);
+//        }
+        //关闭资源
+//        bufferedReader.close();
+//        inputStreamReader.close();
+//        inputStream.close();
+        writer.close();
+        outputStream.close();
+        socket.close();
+    }
+
+    void freshRoute(int port) throws IOException {
+        Socket socket = new Socket("127.0.0.1", port);
+        OutputStream outputStream = socket.getOutputStream();//得到一个输出流，用于向服务器发送数据
+        OutputStreamWriter writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8);//将写入的字符编码成字节后写入一个字节流
+
+        String data = "freshRoute\n";
+        writer.write(data);
+        writer.flush();//刷新缓冲
+        socket.shutdownOutput();//只关闭输出流而不关闭连接
+        //获取服务器端的响应数据
+
+//        InputStream inputStream = socket.getInputStream();//得到一个输入流，用于接收服务器响应的数据
+//        InputStreamReader inputStreamReader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);//将一个字节流中的字节解码成字符
+//        BufferedReader bufferedReader = new BufferedReader(inputStreamReader);//为输入流添加缓冲
+//        String info = null;
+//
+//        //输出服务器端响应数据
+//        while ((info = bufferedReader.readLine()) != null) {
+//            System.out.println(info);
+//        }
+        //关闭资源
+//        bufferedReader.close();
+//        inputStreamReader.close();
+//        inputStream.close();
+        writer.close();
+        outputStream.close();
+        socket.close();
+    }
+
+
+    void addData(String data) throws NoSuchAlgorithmException, IOException {
+        int port = 0;
+        synchronized (flag)
+        {
+            Iterator<Integer> it = idMaps.keySet().iterator();
+            if(it.hasNext()) port = it.next();
+            else return;
+        }
+        Socket socket = new Socket("127.0.0.1", port);
+        OutputStream outputStream = socket.getOutputStream();//得到一个输出流，用于向服务器发送数据
+        OutputStreamWriter writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8);//将写入的字符编码成字节后写入一个字节流
+
+        writer.write("addDataLog\n");
+        writer.write(data);
+        writer.flush();//刷新缓冲
+        socket.shutdownOutput();//只关闭输出流而不关闭连接
+        //获取服务器端的响应数据
+
+//        InputStream inputStream = socket.getInputStream();//得到一个输入流，用于接收服务器响应的数据
+//        InputStreamReader inputStreamReader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);//将一个字节流中的字节解码成字符
+//        BufferedReader bufferedReader = new BufferedReader(inputStreamReader);//为输入流添加缓冲
+//        String info = null;
+//
+//        //输出服务器端响应数据
+//        while ((info = bufferedReader.readLine()) != null) {
+//            System.out.println(info);
+//        }
+        //关闭资源
+//        bufferedReader.close();
+//        inputStreamReader.close();
+//        inputStream.close();
+        writer.close();
+        outputStream.close();
+        socket.close();
+
+    }
+
+    void printData(int port) throws IOException {
+        Socket socket = new Socket("127.0.0.1", port);
+//        System.out.println("print" + port);
+        OutputStream outputStream = socket.getOutputStream();//得到一个输出流，用于向服务器发送数据
+        OutputStreamWriter writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8);//将写入的字符编码成字节后写入一个字节流
+
+        writer.write("print\n");
+        writer.flush();//刷新缓冲
+        socket.shutdownOutput();//只关闭输出流而不关闭连接
+        //获取服务器端的响应数据
+
+        InputStream inputStream = socket.getInputStream();//得到一个输入流，用于接收服务器响应的数据
+        InputStreamReader inputStreamReader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);//将一个字节流中的字节解码成字符
+        BufferedReader bufferedReader = new BufferedReader(inputStreamReader);//为输入流添加缓冲
+        String info = null;
+//
+//        //输出服务器端响应数据
+        while ((info = bufferedReader.readLine()) != null) {
+            System.out.println(info);
+        }
+        //关闭资源
+        bufferedReader.close();
+        inputStreamReader.close();
+        inputStream.close();
+        writer.close();
+        outputStream.close();
+        socket.close();
+
+    }
 
     @Override
     public void run()
@@ -90,6 +217,32 @@ class Trigger extends Thread
             while ((text = br.readLine()) != null) {
                 if(text.equals("")) continue;
                 if(text.charAt(0) == 'A' || text.charAt(0) == 'a') addServer(center.Redundancy);
+                else if(text.charAt(0) == 'D' || text.charAt(0) == 'd')
+                {
+                    String data = br.readLine();
+                    addData(data);
+                }
+                else if(text.charAt(0) == 'C' || text.charAt(0) == 'c')
+                {
+                    String data = br.readLine();
+                    cancelServer(Integer.parseInt(data));
+                }
+                else if(text.charAt(0) == 'P' || text.charAt(0) == 'p')
+                {
+                    String data = br.readLine();
+                    printData(Integer.parseInt(data));
+                }
+                else if(text.charAt(0) == 'R' || text.charAt(0) == 'r')
+                {
+                    synchronized (flag) {
+                        refresh = true;
+                    }
+                }
+                else if(text.charAt(0) == 'F' || text.charAt(0) == 'f')
+                {
+                    String data = br.readLine();
+                    freshRoute(Integer.parseInt(data));
+                }
                 System.out.println(text);
             }
         } catch (IOException | NoSuchAlgorithmException | InterruptedException e) {
@@ -112,39 +265,7 @@ public class center extends JFrame {
 
     }
 
-    static void cancelServer(int port) throws IOException {
-        Socket socket = new Socket("127.0.0.1", port);
-        OutputStream outputStream = socket.getOutputStream();//得到一个输出流，用于向服务器发送数据
-        OutputStreamWriter writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8);//将写入的字符编码成字节后写入一个字节流
 
-        String data = "ping\n";
-        writer.write(data);
-        writer.flush();//刷新缓冲
-        socket.shutdownOutput();//只关闭输出流而不关闭连接
-        //获取服务器端的响应数据
-
-        InputStream inputStream = socket.getInputStream();//得到一个输入流，用于接收服务器响应的数据
-        InputStreamReader inputStreamReader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);//将一个字节流中的字节解码成字符
-        BufferedReader bufferedReader = new BufferedReader(inputStreamReader);//为输入流添加缓冲
-        String info = null;
-
-        //输出服务器端响应数据
-        while ((info = bufferedReader.readLine()) != null) {
-            System.out.println(info);
-        }
-        //关闭资源
-        bufferedReader.close();
-        inputStreamReader.close();
-        inputStream.close();
-        writer.close();
-        outputStream.close();
-        socket.close();
-    }
-
-    void createServer()
-    {
-
-    }
 
 
     public static void main(String[] args) throws IOException, InterruptedException {

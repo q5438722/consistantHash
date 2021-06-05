@@ -27,8 +27,10 @@ class ServerThread extends Thread {
         System.out.println(port);
 
         try {
+//            System.out.println("test\nf1\n");
+            Socket nextSocket = new Socket("127.0.0.1", port);
+//            System.out.println("test\nf2\n");
 
-            Socket nextSocket = new Socket(socket.getLocalAddress().getHostAddress(), port);
             OutputStream outputStream = nextSocket.getOutputStream();
             OutputStreamWriter writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8);
 
@@ -61,24 +63,44 @@ class ServerThread extends Thread {
         }
     }
 
-    public int getPrev(int disPort)
+    public int getPrev(int dstPort)
     {
-        return 0;
+//        if(father.port == dstPort) return father.port;
+        if(Server.middleOf(father.port, father.routeTable.get(0), dstPort)) return father.port;
+        int idx = 0;
+//        for(; idx < hash.hashLen - 1; idx++)//forward search
+//        {
+//            if(Server.middleOf(father.routeTable.get(idx), dstPort, father.routeTable.get(idx + 1))) break;
+//        }
+
+        boolean needRefresh = false;
+        while(idx >= 0)
+        {
+            String res = sendMsg("prefix\n" + dstPort + "\n", father.routeTable.get(idx));
+            if(res != null && !res.equals("")) return Integer.parseInt(res);
+            idx = idx - 1;
+            needRefresh = true;
+        }
+
+        if(needRefresh) refreshRouteTable();
+        return -1;
     }
 
     public int getServer(int dstPort) //Always let prev to tell where this should be
     {
+        System.out.println("test\ngetserver" + dstPort + "\n");
         if(father.port == dstPort) return father.port;
         if(Server.middleOf(father.port, father.routeTable.get(0), dstPort)) return father.routeTable.get(0);
         int idx = 0;
         for(; idx < hash.hashLen - 1; idx++)//forward search
         {
-            if(!Server.middleOf(father.routeTable.get(idx), father.routeTable.get(idx + 1), dstPort)) break;
+            if(Server.middleOf(father.routeTable.get(idx), father.routeTable.get(idx + 1), dstPort)) break;
         }
 
         boolean needRefresh = false;
         while(idx >= 0)
         {
+            if(father.routeTable.get(idx) == father.port) System.out.println("xxxxxx");
             String res = sendMsg("route\n" + dstPort + "\n", father.routeTable.get(idx));
             if(res != null && !res.equals("")) return Integer.parseInt(res);
             idx = idx - 1;
@@ -93,6 +115,8 @@ class ServerThread extends Thread {
     public String messageTrans(ArrayList<String> req) throws NoSuchAlgorithmException {
         String res = null;
         int index = 0;
+        if(req.size() > 1) System.out.println("test\nmessagetrans" + req.get(0) + " " + req.get(1) + "\n");
+        else System.out.println("test\nmessagetrans" + req.get(0) + "\n");
         if (father.serverState != ServerState.run) return null;
 
         switch (req.get(0)) {
@@ -111,6 +135,9 @@ class ServerThread extends Thread {
                 index = Integer.parseInt(req.get(1));
                 res = Integer.toString(getPrev(index));
                 break;
+            case "freshRoute"://from center
+                refreshRouteTable();
+                break;
             case "addDataLog"://from center
                 String data = req.get(1);
                 int dst = getServer(hash.getHash(data));
@@ -128,15 +155,22 @@ class ServerThread extends Thread {
                     sendMsg("transDataLog\n" + father.dataLog.get(log) + "\n", index);
                 }
                 break;
-            case "ping"://not used
-                System.out.println("ok");
+            case "print"://from server
+                System.out.println("test\nRouteTable\n");
+                for(int i = 0; i < hash.hashLen - 1; i++)
+                    System.out.println("test\n" + father.routeTable.get(i) + "\n");
+                System.out.println("test\nData\n");
+                for(Integer i : father.dataLog.keySet())
+                    System.out.println("test\n" + father.dataLog.get(i) + "\n");
+                //System.out.println("ok");
                 break;
             case "setNext"://from server
                 index = Integer.parseInt(req.get(1));
                 father.routeTable.set(0, index);
                 break;
         }
-        
+
+        System.out.println("test\n" + req.get(0) + " res" + res + "\n");
         return res;
     }
 
@@ -144,41 +178,58 @@ class ServerThread extends Thread {
     public void run() {
         if(socket == null)
         {
+//            System.out.println("test\nwww\n");
             String res = sendMsg("route\n" + Integer.toString((father.port + 1) % hash.hashMAX) + "\n", father.agent);
             if(res != null && !res.equals(""))
             {
+//                System.out.println("test\nzzz\n");
                 father.routeTable.set(0, Integer.parseInt(res));
-                refreshRouteTable();
+//                System.out.println("test\nz1\n");
+                //refreshRouteTable();
+                System.out.println("test\nz2\n");
                 father.setServerState(ServerState.run);
                 int prev = getPrev(father.port);
-                String preRes = sendMsg("setnext\n" + father.port + "\n", prev);
-                if(preRes == null || preRes.equals("")) father.setServerState(ServerState.zoobie);
+                System.out.println("test\nprev: " + prev + "\n");
+                if(prev == -1)
+                {
+                    father.setServerState(ServerState.zoobie);
+                    System.out.println("test\nzoobie2\n");
+                }
+                sendMsg("setNext\n" + father.port + "\n", prev);
             }
-            else father.setServerState(ServerState.zoobie);
+            else {
+                father.setServerState(ServerState.zoobie);
+                System.out.println("test\nzoobie\n");
+            }
             return;
         }
 
+//        System.out.println("test\ninput\n");
         InputStream inputStream = null;
         InputStreamReader inputStreamReader = null;
         BufferedReader bufferedReader = null;
         OutputStream outputStream = null;
         OutputStreamWriter writer = null;
         try {
+//            System.out.println("test\nr1\n");
             inputStream = socket.getInputStream();
             inputStreamReader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
             bufferedReader = new BufferedReader(inputStreamReader);
 
             outputStream = socket.getOutputStream();
             writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8);
+//            System.out.println("test\nr2\n");
 
             ArrayList<String> req = new ArrayList<>();
             String temp = null;
             while ((temp = bufferedReader.readLine()) != null) req.add(temp);
+//            System.out.println("test\nreq" + req.get(0) + "\n");
 
             String res = messageTrans(req);
-            writer.write(res);
-            writer.flush();
-
+            if(res != null) {
+                writer.write(res);
+                writer.flush();
+            }
             socket.shutdownInput();
 
         } catch (IOException | NoSuchAlgorithmException e) {
@@ -198,50 +249,6 @@ class ServerThread extends Thread {
 
     }
 }
-//
-//class clientThread extends Thread
-//{
-//    public int port;
-//    public String req;
-//    public ArrayList<String> res = new ArrayList<>();
-//    clientThread(int _port, String _req)
-//    {
-//        port = _port;
-//        req = _req;
-//    }
-//
-//    @Override
-//    public void run() {
-//        try {
-//            Socket socket = new Socket("127.0.0.1", 10068);
-//            OutputStream outputStream = socket.getOutputStream();//得到一个输出流，用于向服务器发送数据
-//            OutputStreamWriter writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8);//将写入的字符编码成字节后写入一个字节流
-//
-//            writer.write(req);
-//            writer.flush();//刷新缓冲
-//            socket.shutdownOutput();//只关闭输出流而不关闭连接
-//            //获取服务器端的响应数据
-//
-//            InputStream inputStream = socket.getInputStream();//得到一个输入流，用于接收服务器响应的数据
-//            InputStreamReader inputStreamReader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);//将一个字节流中的字节解码成字符
-//            BufferedReader bufferedReader = new BufferedReader(inputStreamReader);//为输入流添加缓冲
-//            String temp = null;
-//
-//
-//            while ((temp = bufferedReader.readLine()) != null) res.add(temp);
-//
-//            bufferedReader.close();
-//            inputStreamReader.close();
-//            inputStream.close();
-//            writer.close();
-//            outputStream.close();
-//            socket.close();
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//    }
-//}
-//
 
 class HeartBeat extends Thread
 {
@@ -250,7 +257,7 @@ class HeartBeat extends Thread
     public void run()
     {
         try {
-            while(true) {
+            while(!isInterrupted()) {
                 sleep(1000);
                 System.out.println("HeartBeat");
             }
@@ -280,6 +287,7 @@ class Server
 
     public static boolean middleOf(int src, int dst, int index)
     {
+        if(src == dst) return true;
         if(src < dst && index <= dst && index > src) return true;
         if(src > dst && (index <= dst || index > src)) return true;
         return false;
@@ -308,10 +316,22 @@ class Server
         port = _port;
         agent = _agent;
 //        System.out.println("test\n1\n");
-        serverSocket = new ServerSocket(_port, 10, InetAddress.getByName("127.0.0.1"));
+        try {
+            serverSocket = new ServerSocket(_port, 10, InetAddress.getByName("127.0.0.1"));
+        } catch (Exception e) {
+            System.out.println("test\nFail to initialize socket\n");
+        }
 //        System.out.println("test\n2\n");
+        for(int i = 1; i < hash.hashLen - 1; i++)
+        {
+            routeTable.set(i, _port);
+        }
 
-        if(_agent == _port) routeTable.set(0, _port);
+        if(_agent == _port)
+        {
+            routeTable.set(0, _port);
+            this.serverState = ServerState.run;
+        }
         else
         {
             ServerThread initThread = new ServerThread(null, this);
@@ -324,16 +344,25 @@ class Server
         HeartBeat heartBeat = new HeartBeat();
         heartBeat.start();
 //        System.out.println("wow");
+//        System.out.println("test\nbefore\n");
         while(true)
         {
+            System.out.println("test\npoint3" + port + "\n");
             socket = serverSocket.accept();
+            System.out.println("test\nafter\n");
             ServerThread thread = new ServerThread(socket, this);
 //            threadSet.add(thread);
             thread.start();
             thread.join();
-
-            if(getServerState() == ServerState.zoobie) break;
+//            System.out.println("test\npoint1\n");
+            if(getServerState() == ServerState.zoobie)
+            {
+//                System.out.println("test\npoint2\n");
+                break;
+            }
         }
+        heartBeat.interrupt();
+        System.out.println("exit\n");
     }
 }
 

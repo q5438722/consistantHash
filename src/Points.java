@@ -68,8 +68,7 @@ public class Points extends JPanel
         g.drawImage(imageServer.getImage(), cx, cy, this);
         g.drawString("OuterInput", cx, Height / 2 + imageServer.getIconHeight());
 
-        synchronized (trigger.flag)
-        {
+        synchronized (trigger.flag) {
             g.drawString(Integer.toString(trigger.readers.size()), Width / 4 * 3, logHeight - 20);
             for (int i : trigger.readers.keySet()) {
                 BufferedReader bufferedReader = trigger.readers.get(i);
@@ -89,13 +88,16 @@ public class Points extends JPanel
                             case "test":
                                 String next = bufferedReader.readLine();
                                 System.out.println("test" + next);
-                                trigger.curLogs.put(System.currentTimeMillis(), new DataLog(10, 10, "test", next));
+                                trigger.curLogs.put(System.currentTimeMillis(), new DataLog(i, i, "test", next));
                                 break;
                             case "route":
                                 String query = bufferedReader.readLine();
                                 String dst = bufferedReader.readLine();
                                 trigger.curLogs.put(System.currentTimeMillis(),
                                         new DataLog(i, Integer.parseInt(dst), temp, query));
+                                break;
+                            case "exit":
+                                trigger.curLogs.put(System.currentTimeMillis(), new DataLog(i, i, "exit", null));
                                 break;
                         }
                     }
@@ -117,17 +119,27 @@ public class Points extends JPanel
             }
 
             //to be started
-//        long curTime = System.currentTimeMillis();
-//        for(long i : trigger.curLogs.keySet())
-//        {
-//            if(curTime - i <=  Trigger.livePeriod) continue;
-//            trigger.pastLog.put(i, trigger.curLogs.get(i));
-//            trigger.curLogs.remove(i);
-//        }
+        long curTime = System.currentTimeMillis();
+        for(long i : trigger.curLogs.keySet())
+        {
+            if(curTime - i <=  Trigger.livePeriod) continue;
+            trigger.pastLog.put(i, trigger.curLogs.get(i));
+            trigger.curLogs.remove(i);
+        }
+            if (trigger.refresh)
+            {
+                trigger.pastLog.putAll(trigger.curLogs);
+                trigger.curLogs.clear();
+                trigger.refresh = false;
+            }
             for (long i : trigger.curLogs.keySet()) {
                 logHeight = logHeight + TextHeight;
                 DataLog dataLog = trigger.curLogs.get(i);
-
+                if(dataLog.trans.equals("exit"))
+                {
+                    trigger.idMaps.remove(dataLog.src);
+                    trigger.readers.remove(dataLog.src);
+                }
                 g.drawString(trigger.curLogs.get(i).getOutputLabel(), Width / 4 * 3, logHeight);
             }
 //        g.drawString("nimade", Width / 4 * 3, logHeight);
